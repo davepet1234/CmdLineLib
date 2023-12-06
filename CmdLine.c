@@ -20,8 +20,11 @@
 #include <Library/MemoryAllocationLib.h>
 #include <Library/BaseLib/BaseLibInternals.h>
 #include <Library/UefiBootServicesTableLib.h>
+#include "Protocol/EfiShellInterface.h"
 #include "CmdLine.h"
 #include "CmdLineInternal.h"
+
+extern EFI_SHELL_INTERFACE *mEfiShellInterface;
 
 #define DEBUG_MODE 0
 #if DEBUG_MODE
@@ -102,9 +105,19 @@ SHELL_STATUS ParseCmdLine(IN PARAMETER_TABLE* ParamTable, IN UINTN ManParamCount
     BOOLEAN SwPresent[MAX_SWITCH_ENTRIES] = { 0 };
 
     // get cmd line arguments
-    UINTN Argc = gEfiShellParametersProtocol->Argc;
-    CHAR16** Argv = gEfiShellParametersProtocol->Argv;
-#if DEBUG_MODE
+    UINTN Argc;
+    CHAR16** Argv;
+    if (gEfiShellParametersProtocol != NULL) {  // Check for UEFI Shell 2.0 protocols
+        Argc = gEfiShellParametersProtocol->Argc;
+        Argv = gEfiShellParametersProtocol->Argv;
+    } else if  (mEfiShellInterface != NULL) {
+        Argc = mEfiShellInterface->Argc;
+        Argv = mEfiShellInterface->Argv;
+    } else {
+        ShellStatus = SHELL_UNSUPPORTED;
+        goto Error_exit;
+    }
+    #if DEBUG_MODE
     {
         Print(L"Argc = %u\n", Argc);
         for (UINTN i = 0; i < Argc; i++) {
