@@ -720,9 +720,7 @@ BOOLEAN CheckProgAbort(BOOLEAN PrintMsg)
     BOOLEAN abort = FALSE;
     while (!EFI_ERROR(gST->ConIn->ReadKeyStroke(gST->ConIn, &key))) {
         //Print(L"scancode=%04X char=%04X\n", key.ScanCode, key.UnicodeChar);
-        if ( ((key.ScanCode == 0x00) && (key.UnicodeChar== 0x63))   // Cntrl-C
-            || ((key.ScanCode == 0x17) && (key.UnicodeChar== 0x00))   // ESC
-            ) {
+        if ( (key.ScanCode == 0x17) && (key.UnicodeChar== 0x00) ) { // ESC key
             abort = TRUE;
             if (PrintMsg) {
                 ShellPrintEx(-1, -1, L"%H%s%N: User Aborted!\r\n", g_ProgName);
