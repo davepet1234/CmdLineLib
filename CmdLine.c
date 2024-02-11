@@ -26,6 +26,8 @@
 
 extern EFI_SHELL_INTERFACE *mEfiShellInterface;
 
+#define INPUT_BUFF_LEN  32
+
 #define DEBUG_MODE 0
 #if DEBUG_MODE
 #define TRACE(x) Print x
@@ -33,7 +35,7 @@ extern EFI_SHELL_INTERFACE *mEfiShellInterface;
 #define TRACE(x)
 #endif
 
-// types
+// status of a parameter or switch value
 typedef enum {
     VAL_OK,
     VAL_STR_TRUNCATED,
@@ -83,7 +85,9 @@ STATIC CONST CHAR16 *g_ProgName = NULL;
  * SetProgName()
  *
  **/
-VOID SetProgName(IN CONST CHAR16* ProgName)
+VOID SetProgName(
+  IN CONST CHAR16* ProgName
+)
 {
     g_ProgName = ProgName;
 }
@@ -92,7 +96,14 @@ VOID SetProgName(IN CONST CHAR16* ProgName)
  * ParseCmdLine()
  * 
  **/
-SHELL_STATUS ParseCmdLine(IN PARAMETER_TABLE* ParamTable, IN UINTN ManParamCount, IN SWITCH_TABLE* SwTable, IN CHAR16* ProgHelpStr, IN UINT16 FuncOpt, OUT UINTN* NumParams)
+SHELL_STATUS ParseCmdLine(
+  IN PARAMETER_TABLE *ParamTable OPTIONAL,
+  IN UINTN           ManParamCount,
+  IN SWITCH_TABLE    *SwTable OPTIONAL,
+  IN CHAR16          *ProgHelpStr OPTIONAL,
+  IN UINT16          FuncOpt,
+  OUT UINTN          *NumParams OPTIONAL
+  )
 {
     SHELL_STATUS ShellStatus = SHELL_INVALID_PARAMETER;
 
@@ -257,6 +268,15 @@ SHELL_STATUS ParseCmdLine(IN PARAMETER_TABLE* ParamTable, IN UINTN ManParamCount
         ArgNum++;
     }
 
+    // initialise switch present flags
+    UINTN i = 0;
+    while (SwTable[i].SwitchNecessity != NO_SW) {
+        if (SwTable[i].PresentPtr) {
+            *SwTable[i].PresentPtr = SwPresent[i];
+        }
+        i++;
+    }
+
     // check parameter count
     if (ParamCount < ManParamCount) {
         ShellPrintEx(-1, -1, L"%H%s%N: Too few parameters, at least %u required\r\n", g_ProgName, ManParamCount);
@@ -264,7 +284,7 @@ SHELL_STATUS ParseCmdLine(IN PARAMETER_TABLE* ParamTable, IN UINTN ManParamCount
     }
 
     // check mandatory switches
-    UINTN i = 0;
+    i = 0;
     while (SwTable[i].SwitchNecessity != NO_SW) {
         if (SwTable[i].SwitchNecessity == MAN_SW && !SwPresent[i]) {
             ShellPrintEx(-1, -1, L"%H%s%N: Missing switch - '%H%s%N'\r\n", g_ProgName, SwTable[i].SwStr1);
@@ -282,9 +302,15 @@ Error_exit:
 
 /**
  * Function: ValueError
- *
+ * 
+ * Print a error associated with a parameter or switch value entered
  **/
-STATIC VOID ValueError(IN VALUE_STATUS ValStatus, IN CONST CHAR16 *SwStr, IN UINTN ParamNum, IN CONST CHAR16 *ValString)
+STATIC VOID ValueError(
+  IN VALUE_STATUS ValStatus,    // whats wrong with the value
+  IN CONST CHAR16 *SwStr,       // ptr to switch text (e,g "-file"), or...
+  IN UINTN        ParamNum,     // ...parameter position
+  IN CONST CHAR16 *ValString    // ptr to the value string
+  )
 {
     if (ValStatus == VAL_OK || !ValString) {
         return;
@@ -314,8 +340,15 @@ STATIC VOID ValueError(IN VALUE_STATUS ValStatus, IN CONST CHAR16 *SwStr, IN UIN
 /**
  * Function: ReturnValue
  * 
+ * Convert value string into an actual value
+ * Returns status of value
  **/
-STATIC VALUE_STATUS ReturnValue(IN CONST CHAR16 *String, IN VALUE_TYPE ValueType, IN DATA *Data, OUT VALUE_RET_PTR ValueRetPtr)
+STATIC VALUE_STATUS ReturnValue(
+  IN CONST CHAR16   *String,        // ptr to value string
+  IN VALUE_TYPE     ValueType,      // type of value
+  IN DATA           *Data,          // ptr to misc data for value
+  OUT VALUE_RET_PTR ValueRetPtr     // ptr to store converted value
+  )
 {
     UINTN Value;
     VALUE_STATUS ValStatus;
@@ -384,8 +417,14 @@ STATIC VALUE_STATUS ReturnValue(IN CONST CHAR16 *String, IN VALUE_TYPE ValueType
 /**
  * Function: ProcessIntVal
  *
+ * Check integer will fit into allocated size before storing it in the return ptr
+ * Returns status of value
  **/
-STATIC VALUE_STATUS ProcessIntVal(IN UINTN Value, IN VALUE_SIZE ValSize, OUT VALUE_RET_PTR ValueRetPtr)
+STATIC VALUE_STATUS ProcessIntVal(
+  IN UINTN          Value,          // integer value
+  IN VALUE_SIZE     ValSize,        // size of integer
+  OUT VALUE_RET_PTR ValueRetPtr     // ptr to store converted value
+  )
 {
     switch (ValSize) {
     case SIZEN:
@@ -419,8 +458,14 @@ STATIC VALUE_STATUS ProcessIntVal(IN UINTN Value, IN VALUE_SIZE ValSize, OUT VAL
 /**
  * Function: GetEnumVal
  * 
+ * Gets value associated with an enum entry
+ * Returns TRUE if successful
  **/
-STATIC BOOLEAN GetEnumVal(IN ENUM_STR_ARRAY *EnumStrArray, IN CONST CHAR16 *Str, OUT UINTN *Value)
+STATIC BOOLEAN GetEnumVal(
+  IN ENUM_STR_ARRAY *EnumStrArray,      // enum to string array
+  IN CONST CHAR16   *Str,               // enum string
+  OUT UINTN         *Value              // associated value
+  )
 {
     BOOLEAN found = FALSE;
     UINTN i = 0;
@@ -440,8 +485,13 @@ STATIC BOOLEAN GetEnumVal(IN ENUM_STR_ARRAY *EnumStrArray, IN CONST CHAR16 *Str,
 /**
  * Function: StriCmp
  *
+ * Case insenitive unicode string compare
+ * Returns value same as strcmp()
  **/
-STATIC INTN EFIAPI StriCmp(IN CONST CHAR16* FirstString, IN CONST CHAR16* SecondString)
+STATIC INTN EFIAPI StriCmp(
+  IN CONST CHAR16 *FirstString,     // first string
+  IN CONST CHAR16 *SecondString     // second string
+  )
 {
     CHAR16  UpperFirstString;
     CHAR16  UpperSecondString;
@@ -461,8 +511,12 @@ STATIC INTN EFIAPI StriCmp(IN CONST CHAR16* FirstString, IN CONST CHAR16* Second
 /**
  * Function: HasHexPrefix
  *
+ * Checks if string has hex prefix; '0x' or '0X'
+ * Returns TRUE if pressent; FALSE if not or invalid char encountered
  **/
-STATIC BOOLEAN HasHexPrefix(IN CONST CHAR16* String)
+STATIC BOOLEAN HasHexPrefix(
+  IN CONST CHAR16 *String   // string to check
+  )
 {
     BOOLEAN LeadingZero = FALSE;
 
@@ -477,8 +531,7 @@ STATIC BOOLEAN HasHexPrefix(IN CONST CHAR16* String)
         if (!LeadingZero) {
             return FALSE;
         }
-    }
-    else {
+    } else {
         return FALSE;
     }
     return TRUE;
@@ -487,8 +540,11 @@ STATIC BOOLEAN HasHexPrefix(IN CONST CHAR16* String)
 /**
  * Function: IsHexString
  *
+ * Returns TRUE if valid hexidecimal value
  **/
-STATIC BOOLEAN IsHexString(IN CONST CHAR16* String)
+STATIC BOOLEAN IsHexString(
+  IN CONST CHAR16 *String   // string to check
+  )
 {
     BOOLEAN LeadingZero = FALSE;
 
@@ -514,8 +570,11 @@ STATIC BOOLEAN IsHexString(IN CONST CHAR16* String)
 /**
  * Function: IsDecimalString
  *
- **/
-STATIC BOOLEAN IsDecimalString(IN CONST CHAR16* String)
+ * Returns TRUE if valid decimal value
+  **/
+STATIC BOOLEAN IsDecimalString(
+  IN CONST CHAR16 *String   //string to check
+  )
 {
     while ((*String == L' ') || (*String == L'\t')) {
         String++;
@@ -529,8 +588,11 @@ STATIC BOOLEAN IsDecimalString(IN CONST CHAR16* String)
 /**
  * Function: GetFileName
  *
+ * Returns ptr to filename from path string
  **/
-STATIC CONST CHAR16* GetFileName(CONST CHAR16* PathName)
+STATIC CONST CHAR16* GetFileName(
+  CONST CHAR16 *PathName    // path string
+  )
 {
     UINTN i = StrLen(PathName);
     while (i) {
@@ -545,8 +607,12 @@ STATIC CONST CHAR16* GetFileName(CONST CHAR16* PathName)
 /**
  * TableError()
  * 
+ * Runtime table error function
  **/
-STATIC VOID TableError(IN UINTN i, IN CHAR16 *errStr)
+STATIC VOID TableError(
+  IN UINTN  i,          // table entry
+  IN CHAR16 *errStr     // error string
+  )
 {
     ShellPrintEx(-1, -1, L"TBLERR(%d): %s\n", i, errStr);
 }
@@ -554,8 +620,11 @@ STATIC VOID TableError(IN UINTN i, IN CHAR16 *errStr)
 /**
  * ArgNameDefined()
  * 
+ * Return TRUE is name of argument defined in help text; i.e. '[num]' at start
  **/
-STATIC BOOLEAN ArgNameDefined(IN CHAR16 *HelpStr)
+STATIC BOOLEAN ArgNameDefined(
+  IN CHAR16 *HelpStr
+  )
 {
     return HelpStr[0] == L'[' ? TRUE:FALSE;
 }
@@ -563,8 +632,16 @@ STATIC BOOLEAN ArgNameDefined(IN CHAR16 *HelpStr)
 /**
  * GetArgName()
  * 
+ * Retrieves argument name from help text
+ * Returns position after argument name in help text
  **/
-STATIC UINTN GetArgName(IN CHAR16 *HelpStr, OUT CHAR16* ArgName, IN UINTN ArgNameSize, IN BOOLEAN Mandatory, IN CONST CHAR16 *DefaultArgName)
+STATIC UINTN GetArgName(
+  IN CHAR16       *HelpStr,         // help string
+  OUT CHAR16      *ArgName,         // ptr to store argument name
+  IN UINTN        ArgNameSize,      // size of argument name string
+  IN BOOLEAN      Mandatory,        // specifiy if argument is mandatory; an optional argument with be enclosed with square brackets
+  IN CONST CHAR16 *DefaultArgName   // default argument name to retrun if none specified
+  )
 {
     UINTN HelpStartIdx = 0;             // start of help text
     CONST CHAR16 *ArgPtr = NULL;
@@ -614,12 +691,19 @@ STATIC UINTN GetArgName(IN CHAR16 *HelpStr, OUT CHAR16* ArgName, IN UINTN ArgNam
 /**
  * Function: ShowHelp
  * 
+ * Display program help
  **/
 
 #define ARG_NAME_SIZE   24
 #define PAD_SIZE        20
 
-STATIC VOID ShowHelp(IN UINTN ManParamCount, IN PARAMETER_TABLE *ParamTable, IN SWITCH_TABLE *SwTable, IN CONST CHAR16 *ProgHelpStr, IN UINTN FuncOpt)
+STATIC VOID ShowHelp(
+  IN UINTN           ManParamCount,     // number of mandatory parameters
+  IN PARAMETER_TABLE *ParamTable,       // ptr to parameter table
+  IN SWITCH_TABLE    *SwTable,          // ptr to switch table
+  IN CONST CHAR16    *ProgHelpStr,      // ptr to program help
+  IN UINTN           FuncOpt            // options as passed to ParseCmdLine
+  )
 {
     CHAR16 ArgName[ARG_NAME_SIZE];
     UINTN HelpIdx;
@@ -714,7 +798,9 @@ STATIC VOID ShowHelp(IN UINTN ManParamCount, IN PARAMETER_TABLE *ParamTable, IN 
  * Function: CheckProgAbort
  * 
  **/
-BOOLEAN CheckProgAbort(BOOLEAN PrintMsg)
+BOOLEAN CheckProgAbort(
+  IN BOOLEAN PrintMsg
+  )
 {
     EFI_INPUT_KEY key;
     BOOLEAN abort = FALSE;
@@ -729,5 +815,222 @@ BOOLEAN CheckProgAbort(BOOLEAN PrintMsg)
         }
     }
     return abort;
+}
+
+/**
+ * Function: WaitKeyPress
+ * 
+ **/
+EFI_STATUS WaitKeyPress(
+  OUT CHAR16      *KeyPressed OPTIONAL,
+  IN CONST CHAR16 *KeyList OPTIONAL,
+  IN CONST CHAR16 *PromptStr OPTIONAL,
+  IN UINT16       KeyOpt
+)
+{
+    EFI_STATUS Status = EFI_SUCCESS;
+
+    if (PromptStr) {
+        if ((KeyOpt & KEY_LIST) && KeyList && StrLen(KeyList)) {
+            ShellPrintEx(-1, -1, L"%s (%s)", PromptStr, KeyList);
+        } else {
+            ShellPrintEx(-1, -1, L"%s", PromptStr);
+        }
+    }
+    BOOLEAN Complete = FALSE;
+    CHAR16 CharCode = 0;
+    while (!Complete) {
+        UINTN index;
+        Status = gST->BootServices->WaitForEvent(1, &gST->ConIn->WaitForKey, &index);
+        if (EFI_ERROR(Status)) {
+            break;
+        }
+        EFI_INPUT_KEY key;
+        Status = gST->ConIn->ReadKeyStroke(gST->ConIn, &key);
+        if (EFI_ERROR(Status)) {
+            break;
+        }
+        //Print(L"scancode=%04X char=%04X\n", key.ScanCode, key.UnicodeChar);
+        if ((key.ScanCode == 0x17) && (key.UnicodeChar== 0x00)) {
+            // ESC key - abort
+            Status = EFI_ABORTED;
+            Complete = TRUE;
+        } else if (KeyList && KeyList[0] != '\0' ) {
+            UINTN i = 0;
+            while (KeyList[i]) {
+                CHAR16 key1 = (KeyOpt & KEY_ICASE) ? CharToUpper(key.UnicodeChar) : key.UnicodeChar;
+                CHAR16 key2 = (KeyOpt & KEY_ICASE) ? CharToUpper(KeyList[i]) : KeyList[i];
+                if (key1 == key2) {
+                    CharCode = key.UnicodeChar;
+                    Complete = TRUE;
+                    break;
+                }
+                i++;
+            }
+        } else { // any key
+            CharCode = key.UnicodeChar;
+            Complete = TRUE;
+        }
+    }
+    if ((KeyOpt & KEY_ECHO) && (CharCode >= 32) && (CharCode <= 127)) {
+        ShellPrintEx(-1, -1, L" %c\n", CharCode);
+    } else {
+        ShellPrintEx(-1, -1, L"\n");
+    }
+    if(KeyPressed) {
+        *KeyPressed = CharCode;
+    }
+    return Status;
+}
+
+/**
+ * Function: StringInput
+ * 
+ **/
+EFI_STATUS StringInput(
+  OUT CHAR16      *InputBuffer, 
+  IN UINTN        InputLen, 
+  IN CONST CHAR16 *PromptStr OPTIONAL
+  )
+{
+    EFI_STATUS Status = EFI_SUCCESS;
+    if (!InputBuffer || !InputLen) {
+        Status = EFI_BAD_BUFFER_SIZE;
+        goto Error_exit;
+    }
+    InputBuffer[0] = L'\0';
+    if (PromptStr) {
+        ShellPrintEx(-1, -1, PromptStr);
+    }
+    UINTN MaxCol;
+    UINTN MaxRow;
+    gST->ConOut->QueryMode(gST->ConOut, gST->ConOut->Mode->Mode, &MaxCol, &MaxRow);
+    UINTN currPos = 0;
+    while (TRUE) {
+        UINTN index;
+        Status = gST->BootServices->WaitForEvent(1, &gST->ConIn->WaitForKey, &index);
+        if (EFI_ERROR(Status)) {
+            break;
+        }
+        EFI_INPUT_KEY key;
+        Status = gST->ConIn->ReadKeyStroke(gST->ConIn, &key);
+        if (EFI_ERROR(Status)) {
+            break;
+        }
+        //Print(L"scancode=%04X char=%04X\n", key.ScanCode, key.UnicodeChar);
+        if ((key.ScanCode == 0x17) && (key.UnicodeChar== 0x00)) {
+            // ESC key - abort entry
+            InputBuffer[0] = L'\0';
+            Status = EFI_ABORTED;
+            break;
+        }
+        if (key.UnicodeChar == 13) {
+            // ENTER key - finish entry
+            break;
+        }
+        INT32 Col = gST->ConOut->Mode->CursorColumn;
+        INT32 Row = gST->ConOut->Mode->CursorRow;
+        //ShellPrintEx(40, 0, L" [Col:%3d, Row:%3d] \n", gST->ConOut->Mode->CursorColumn, gST->ConOut->Mode->CursorRow);
+        //gST->ConOut->SetCursorPosition (gST->ConOut, Col, Row);
+        if (key.UnicodeChar == 8) {
+            // BACKSPACE key - delete last char
+            if (currPos > 0) {
+                currPos--;
+                InputBuffer[currPos] = L'\0';
+                if (Col == 0) {
+                    // at start of line so move to end of previous line
+                    Row--;
+                    Col = MaxCol-1;
+                } else {
+                    Col--;
+                }
+                ShellPrintEx(Col, Row, L" ");
+                gST->ConOut->SetCursorPosition (gST->ConOut, Col, Row);
+            }
+        } else if ((key.UnicodeChar >= 32) && (key.UnicodeChar <= 127)) {
+            // Printable character
+            if (currPos < InputLen-1) {
+                InputBuffer[currPos] = key.UnicodeChar;
+                currPos++;
+                InputBuffer[currPos] = L'\0';
+                ShellPrintEx(Col, Row, L"%c", key.UnicodeChar);
+            }
+        }
+    }
+Error_exit:
+    Print(L"\n");
+    return Status;
+}
+
+/**
+ * Function: DecimalInput
+ * 
+ **/
+EFI_STATUS DecimalInput(
+  OUT UINTN       *Value,
+  IN CONST CHAR16 *PromptStr OPTIONAL
+  )
+{
+    CHAR16 InputBuffer[INPUT_BUFF_LEN];    
+    EFI_STATUS Status = StringInput(InputBuffer, INPUT_BUFF_LEN, PromptStr);
+    if (!EFI_ERROR(Status)) {
+        if (!IsDecimalString(InputBuffer)) {
+            ShellPrintEx(-1, -1, L"%H%s%N: Invalid decimal input!\r\n", g_ProgName);
+            Status = EFI_INVALID_PARAMETER;
+        } else {
+            *Value = StrDecimalToUintn(InputBuffer);
+        }
+    }
+    return Status;
+}
+
+/**
+ * Function: HexidecimalInput
+ * 
+ **/
+EFI_STATUS HexidecimalInput(
+  OUT UINTN       *Value,
+  IN CONST CHAR16 *PromptStr OPTIONAL
+  )
+{
+    CHAR16 InputBuffer[INPUT_BUFF_LEN];    
+    EFI_STATUS Status = StringInput(InputBuffer, INPUT_BUFF_LEN, PromptStr);
+    if (!EFI_ERROR(Status)) {
+        if (!IsHexString(InputBuffer)) {
+            ShellPrintEx(-1, -1, L"%H%s%N: Invalid hexidecimal input!\r\n", g_ProgName);
+            Status = EFI_INVALID_PARAMETER;
+        } else {
+            *Value = StrHexToUintn(InputBuffer);
+        }
+    }
+    return Status;
+}
+
+/**
+ * Function: IntegerInput
+ * 
+ **/
+EFI_STATUS IntegerInput(
+  OUT UINTN       *Value,
+  IN CONST CHAR16 *PromptStr OPTIONAL
+  )
+{
+    CHAR16 InputBuffer[INPUT_BUFF_LEN];    
+    EFI_STATUS Status = StringInput(InputBuffer, INPUT_BUFF_LEN, PromptStr);
+    if (!EFI_ERROR(Status)) {
+        if (HasHexPrefix(InputBuffer)) {
+            if (!IsHexString(InputBuffer)) {
+                ShellPrintEx(-1, -1, L"%H%s%N: Invalid hexidecimal input!\r\n", g_ProgName);
+            Status = EFI_INVALID_PARAMETER;
+            }
+            *Value = StrHexToUintn(InputBuffer);
+        } else if (IsDecimalString(InputBuffer)) {
+            *Value = StrDecimalToUintn(InputBuffer);
+        } else {
+            ShellPrintEx(-1, -1, L"%H%s%N: Invalid decimal input!\r\n", g_ProgName);
+            Status = EFI_INVALID_PARAMETER;
+        }
+    }
+    return Status;
 }
 

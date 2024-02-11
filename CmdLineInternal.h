@@ -74,14 +74,15 @@ typedef struct {
     SWITCH_NECESSITY SwitchNecessity;
     VALUE_TYPE ValueType;
     DATA Data;
+    BOOLEAN *PresentPtr;
     VALUE_RET_PTR ValueRetPtr;
     CHAR16 *HelpStr;
 } SWITCH_TABLE;
 
 
 // generic switch table entry
-#define SWTABLE_ENTRY(SwStr1, SwStr2, SwitchNeccessity, ValueType, EnumArray, ValueRetPtr, HelpStr) \
-        { SwStr1, SwStr2, SwitchNeccessity, ValueType, EnumArray, {.pVoid=ValueRetPtr}, HelpStr },
+#define SWTABLE_ENTRY(SwStr1, SwStr2, SwitchNeccessity, ValueType, EnumArray, PresentPtr, ValueRetPtr, HelpStr) \
+        { SwStr1, SwStr2, SwitchNeccessity, ValueType, EnumArray, PresentPtr, {.pVoid=ValueRetPtr}, HelpStr },
 
 
 #ifdef __cplusplus
