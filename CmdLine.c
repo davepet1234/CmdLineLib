@@ -847,11 +847,15 @@ EFI_STATUS WaitKeyPress(
         }
         EFI_INPUT_KEY key;
         Status = gST->ConIn->ReadKeyStroke(gST->ConIn, &key);
+        if (Status == EFI_NOT_READY) {
+            // modifier key
+            continue;
+        }
         if (EFI_ERROR(Status)) {
             break;
         }
         //Print(L"scancode=%04X char=%04X\n", key.ScanCode, key.UnicodeChar);
-        if ((key.ScanCode == 0x17) && (key.UnicodeChar== 0x00)) {
+        if ((key.ScanCode == SCAN_ESC) && (key.UnicodeChar== 0x00)) {
             // ESC key - abort
             Status = EFI_ABORTED;
             Complete = TRUE;
@@ -914,11 +918,15 @@ EFI_STATUS StringInput(
         }
         EFI_INPUT_KEY key;
         Status = gST->ConIn->ReadKeyStroke(gST->ConIn, &key);
+        if (Status == EFI_NOT_READY) {
+            // modifier key
+            continue;
+        }
         if (EFI_ERROR(Status)) {
             break;
         }
         //Print(L"scancode=%04X char=%04X\n", key.ScanCode, key.UnicodeChar);
-        if ((key.ScanCode == 0x17) && (key.UnicodeChar== 0x00)) {
+        if ((key.ScanCode == SCAN_ESC) && (key.UnicodeChar== 0x00)) {
             // ESC key - abort entry
             InputBuffer[0] = L'\0';
             Status = EFI_ABORTED;
