@@ -124,6 +124,8 @@ extern "C" {
 **/
 #define SWTABLE_OPT_FLAG(SwStr1, SwStr2, ValueRetPtr, HelpStr) \
     {SwStr1, SwStr2, OPT_SW, VALTYPE_NONE, {0}, NULL, {.pBoolean=ValueRetPtr}, HelpStr},
+#define SWTABLE_MAN_FLAG(SwStr1, SwStr2, ValueRetPtr, HelpStr) \
+    {SwStr1, SwStr2, MAN_SW, VALTYPE_NONE, {0}, NULL, {.pBoolean=ValueRetPtr}, HelpStr},
 
 /**
   SWTABLE_OPT_FLGVAL - Adds an optional switch with no value (has default value) to table
@@ -136,6 +138,8 @@ extern "C" {
 **/
 #define SWTABLE_OPT_FLGVAL(SwStr1, SwStr2, ValueRetPtr, Value, HelpStr) \
     {SwStr1, SwStr2, OPT_SW, VALTYPE_NONE, {.FlagValue=Value}, NULL, {.pUintn=ValueRetPtr}, HelpStr},
+#define SWTABLE_MAN_FLGVAL(SwStr1, SwStr2, ValueRetPtr, Value, HelpStr) \
+    {SwStr1, SwStr2, MAN_SW, VALTYPE_NONE, {.FlagValue=Value}, NULL, {.pUintn=ValueRetPtr}, HelpStr},
 
 /**
   SWTABLE_OPT_STR - Adds an optional string switch to table

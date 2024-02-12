@@ -66,6 +66,8 @@ STATIC VOID TableError(IN UINTN i, IN CHAR16 *errStr);
 STATIC BOOLEAN ArgNameDefined(IN CHAR16 *HelpStr);
 STATIC UINTN GetArgName(IN CHAR16 *HelpStr, OUT CHAR16* ArgName, IN UINTN ArgNameSize, IN BOOLEAN Mandatory, IN CONST CHAR16 *DefaultArgName);
 STATIC VOID ShowHelp(IN UINTN ManParamCount, IN PARAMETER_TABLE *ParamTable, IN SWITCH_TABLE *SwTable, IN CONST CHAR16 *ProgHelpStr, IN UINTN FuncOpt);
+STATIC VOID PrintSwitchHelp(IN SWITCH_TABLE *SwTableEntry);
+
 
 // globals
 STATIC CONST CHAR16* CONST g_BreakSwStr1 = L"-b";
@@ -640,7 +642,7 @@ STATIC UINTN GetArgName(
   OUT CHAR16      *ArgName,         // ptr to store argument name
   IN UINTN        ArgNameSize,      // size of argument name string
   IN BOOLEAN      Mandatory,        // specifiy if argument is mandatory; an optional argument with be enclosed with square brackets
-  IN CONST CHAR16 *DefaultArgName   // default argument name to retrun if none specified
+  IN CONST CHAR16 *DefaultArgName   // default argument name to return if none specified
   )
 {
     UINTN HelpStartIdx = 0;             // start of help text
@@ -726,7 +728,7 @@ STATIC VOID ShowHelp(
         ShellPrintEx(-1, -1, L"%s\n\n", ProgHelpStr);
     }
 
-    // usage
+    // Usage line
     if (g_ProgName) {
         ShellPrintEx(-1, -1, L"Usage: %s", g_ProgName);
     } else {
@@ -734,11 +736,35 @@ STATIC VOID ShowHelp(
     }
     UINTN i = 0;
     while (ParamTable[i].ValueType != VALTYPE_NONE) {
+        // usage: parameters
         GetArgName(ParamTable[i].HelpStr, ArgName, ARG_NAME_SIZE, (i+1 <= ManParamCount), g_DefaultArgName);
         ShellPrintEx(-1, -1, L" %s", ArgName);
         i++;
     }
-    ShellPrintEx(-1, -1, L" [options]\n");
+    i = 0;
+    while (SwTable[i].SwitchNecessity != NO_SW) {
+        // usage: mandatory switches
+        if (SwTable[i].SwitchNecessity == MAN_SW) {
+            CHAR16 *SwStr = SwTable[i].SwStr1 ? SwTable[i].SwStr1 : SwTable[i].SwStr2;
+            if (SwTable[i].ValueType == VALTYPE_NONE) {
+                ShellPrintEx(-1, -1, L" %s", SwStr);
+            } else {
+                GetArgName(SwTable[i].HelpStr, ArgName, ARG_NAME_SIZE, TRUE, g_DefaultArgName);
+                ShellPrintEx(-1, -1, L" %s %s", SwStr, ArgName);
+            }
+        }
+        i++;
+    }
+    i = 0;
+    while (SwTable[i].SwitchNecessity != NO_SW) {
+        // usage: optional switches
+        if (SwTable[i].SwitchNecessity != MAN_SW) {
+            ShellPrintEx(-1, -1, L" [options]");
+            break;
+        }
+        i++;
+    }
+    ShellPrintEx(-1, -1, L"\n");
 
     // Parameter help
     if (ParamTable) {
@@ -752,39 +778,29 @@ STATIC VOID ShowHelp(
         }
     }
     // Switch help
-    ShellPrintEx(-1, -1, L"\n Options:\n");
     if (SwTable) {
+        // Mandatory switches
         i = 0;
+        UINTN count = 0;
         while (SwTable[i].SwitchNecessity != NO_SW) {
-            HelpIdx = GetArgName(SwTable[i].HelpStr, ArgName, ARG_NAME_SIZE, TRUE, (SwTable[i].ValueType == VALTYPE_NONE) ? NULL : g_DefaultArgName);
-            CHAR16 SeperatorChar = L',';
-            CHAR16 *SwStr1 = SwTable[i].SwStr1;
-            CHAR16 *SwStr2 = SwTable[i].SwStr2;
-            if (!SwStr1) {
-                SwStr1 = &pad[(PAD_SIZE-1)-2]; // 2 spaces for short switch
-                SeperatorChar = L' ';
-            }
-            if (!SwStr2) {
-                SwStr2 = &pad[PAD_SIZE-1]; // null str
-                SeperatorChar = L' ';
-            }
-            UINTN TotalLen = StrLen(SwStr2) + StrLen(ArgName);
-            CHAR16 *PadStr = (TotalLen > PAD_SIZE-1) ? &pad[(PAD_SIZE-1)-1] : &pad[TotalLen];
-            ShellPrintEx(-1, -1, L"  %s%c %s %s%s%s", SwStr1, SeperatorChar, SwStr2, ArgName, PadStr, &SwTable[i].HelpStr[HelpIdx]);
-            if (SwTable[i].ValueType == VALTYPE_ENUM) {
-                // print all valid options for enum switches
-                ShellPrintEx(-1, -1, L" (");
-                UINTN j = 0;
-                while (SwTable[i].Data.EnumStrArray[j].Str) {
-                    ShellPrintEx(-1, -1, L"%s", SwTable[i].Data.EnumStrArray[j].Str);
-                    j++;
-                    if (SwTable[i].Data.EnumStrArray[j].Str) {
-                        ShellPrintEx(-1, -1, L"|");
-                    }
+            if (SwTable[i].SwitchNecessity == MAN_SW) {
+                if (count++ == 0) {
+                    ShellPrintEx(-1, -1, L"\n Required switches:\n");
                 }
-                ShellPrintEx(-1, -1, L")");
+                PrintSwitchHelp(&SwTable[i]);
             }
-            ShellPrintEx(-1, -1, L"\n");
+            i++;
+        }
+        // Optional switches
+        i = 0;
+        count = 0;
+        while (SwTable[i].SwitchNecessity != NO_SW) {
+            if (SwTable[i].SwitchNecessity != MAN_SW) {
+                if (count++ == 0) {
+                    ShellPrintEx(-1, -1, L"\n Optional switches:\n");
+                }
+                PrintSwitchHelp(&SwTable[i]);
+            }
             i++;
         }
     }
@@ -792,6 +808,51 @@ STATIC VOID ShowHelp(
     ShellPrintEx(-1, -1, L"  %s, %s %s%s\n", g_BreakSwStr1, g_BreakSwStr2, &pad[StrLen(g_BreakSwStr2)], g_BreakSwStr);
     // help switch
     ShellPrintEx(-1, -1, L"  %s, %s %s%s\n\n", g_HelpSwStr1, g_HelpSwStr2, &pad[StrLen(g_HelpSwStr2)], g_HelpSwStr);
+}
+
+STATIC VOID PrintSwitchHelp(
+  IN SWITCH_TABLE *SwTableEntry     // ptr to switch table entry
+  )
+{
+    CHAR16 ArgName[ARG_NAME_SIZE];
+    UINTN HelpIdx;
+    
+    // initialise padding string
+    CHAR16 pad[PAD_SIZE];
+    for (UINTN i=0; i<PAD_SIZE; i++) {
+        pad[i] = L' ';
+    }
+    pad[PAD_SIZE-1] = L'\0';
+
+    HelpIdx = GetArgName(SwTableEntry->HelpStr, ArgName, ARG_NAME_SIZE, TRUE, (SwTableEntry->ValueType == VALTYPE_NONE) ? NULL : g_DefaultArgName);
+    CHAR16 SeperatorChar = L',';
+    CHAR16 *SwStr1 = SwTableEntry->SwStr1;
+    CHAR16 *SwStr2 = SwTableEntry->SwStr2;
+    if (!SwStr1) {
+        SwStr1 = &pad[(PAD_SIZE-1)-2]; // 2 spaces for short switch
+        SeperatorChar = L' ';
+    }
+    if (!SwStr2) {
+        SwStr2 = &pad[PAD_SIZE-1]; // null str
+        SeperatorChar = L' ';
+    }
+    UINTN TotalLen = StrLen(SwStr2) + StrLen(ArgName);
+    CHAR16 *PadStr = (TotalLen > PAD_SIZE-1) ? &pad[(PAD_SIZE-1)-1] : &pad[TotalLen];
+    ShellPrintEx(-1, -1, L"  %s%c %s %s%s%s", SwStr1, SeperatorChar, SwStr2, ArgName, PadStr, &SwTableEntry->HelpStr[HelpIdx]);
+    if (SwTableEntry->ValueType == VALTYPE_ENUM) {
+        // print all valid options for enum switches
+        ShellPrintEx(-1, -1, L" (");
+        UINTN j = 0;
+        while (SwTableEntry->Data.EnumStrArray[j].Str) {
+            ShellPrintEx(-1, -1, L"%s", SwTableEntry->Data.EnumStrArray[j].Str);
+            j++;
+            if (SwTableEntry->Data.EnumStrArray[j].Str) {
+                ShellPrintEx(-1, -1, L"|");
+            }
+        }
+        ShellPrintEx(-1, -1, L")");
+    }
+    ShellPrintEx(-1, -1, L"\n");
 }
 
 /**
