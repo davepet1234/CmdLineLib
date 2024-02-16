@@ -401,7 +401,7 @@ extern "C" {
   FuncOpt       Functional options (bit values to be ORed)
                     NO_OPT          no option, used on its own
                     NO_HELP         no command line help
-                    FORCE_BREAK     no break option
+                    NO_BREAK        no break option
   NumParams     Ptr to return the number of parameter entered; set to NULL if not required
   
   Returns       SHELL_SUCCESS           if all parameters/switches are valid

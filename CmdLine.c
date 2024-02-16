@@ -72,7 +72,6 @@ STATIC VOID PrintSwitchHelp(IN SWITCH_TABLE *SwTableEntry);
 // globals
 STATIC CONST CHAR16* CONST g_BreakSwStr1 = L"-b";
 STATIC CONST CHAR16* CONST g_BreakSwStr2 = L"-break";
-STATIC CONST CHAR16* CONST g_BreakSwStr = L"enable page break mode";
 
 STATIC CONST CHAR16* CONST g_HelpSwStr1 = L"-h";
 STATIC CONST CHAR16* CONST g_HelpSwStr2 = L"-help";
@@ -184,7 +183,7 @@ SHELL_STATUS ParseCmdLine(
     while (ArgNum < Argc) {
         // SWITCHES
         if ((Argv[ArgNum][0] == L'/') || (Argv[ArgNum][0] == L'-')) {
-            if (((StriCmp(Argv[ArgNum], g_BreakSwStr1) == 0) || (StriCmp(Argv[ArgNum], g_BreakSwStr2) == 0))) {
+            if ((StriCmp(Argv[ArgNum], g_BreakSwStr1) == 0) || (StriCmp(Argv[ArgNum], g_BreakSwStr2) == 0)) {
                 // ignore break switch as handled previously
                 ArgNum++;
                 continue;
@@ -804,8 +803,6 @@ STATIC VOID ShowHelp(
             i++;
         }
     }
-    // break switch
-    ShellPrintEx(-1, -1, L"  %s, %s %s%s\n", g_BreakSwStr1, g_BreakSwStr2, &pad[StrLen(g_BreakSwStr2)], g_BreakSwStr);
     // help switch
     ShellPrintEx(-1, -1, L"  %s, %s %s%s\n\n", g_HelpSwStr1, g_HelpSwStr2, &pad[StrLen(g_HelpSwStr2)], g_HelpSwStr);
 }
