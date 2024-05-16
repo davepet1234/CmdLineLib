@@ -733,42 +733,47 @@ STATIC VOID ShowHelp(
     } else {
         ShellPrintEx(-1, -1, L"Usage: ");
     }
-    UINTN i = 0;
-    while (ParamTable[i].ValueType != VALTYPE_NONE) {
-        // usage: parameters
-        GetArgName(ParamTable[i].HelpStr, ArgName, ARG_NAME_SIZE, (i+1 <= ManParamCount), g_DefaultArgName);
-        ShellPrintEx(-1, -1, L" %s", ArgName);
-        i++;
+    if (ParamTable) {
+        UINTN i = 0;
+        while (ParamTable[i].ValueType != VALTYPE_NONE) {
+            // usage: parameters
+            GetArgName(ParamTable[i].HelpStr, ArgName, ARG_NAME_SIZE, (i + 1 <= ManParamCount), g_DefaultArgName);
+            ShellPrintEx(-1, -1, L" %s", ArgName);
+            i++;
+        }
     }
-    i = 0;
-    while (SwTable[i].SwitchNecessity != NO_SW) {
-        // usage: mandatory switches
-        if (SwTable[i].SwitchNecessity == MAN_SW) {
-            CHAR16 *SwStr = SwTable[i].SwStr1 ? SwTable[i].SwStr1 : SwTable[i].SwStr2;
-            if (SwTable[i].ValueType == VALTYPE_NONE) {
-                ShellPrintEx(-1, -1, L" %s", SwStr);
-            } else {
-                GetArgName(SwTable[i].HelpStr, ArgName, ARG_NAME_SIZE, TRUE, g_DefaultArgName);
-                ShellPrintEx(-1, -1, L" %s %s", SwStr, ArgName);
+    if (SwTable) {
+        UINTN i = 0;
+        while (SwTable[i].SwitchNecessity != NO_SW) {
+            // usage: mandatory switches
+            if (SwTable[i].SwitchNecessity == MAN_SW) {
+                CHAR16* SwStr = SwTable[i].SwStr1 ? SwTable[i].SwStr1 : SwTable[i].SwStr2;
+                if (SwTable[i].ValueType == VALTYPE_NONE) {
+                    ShellPrintEx(-1, -1, L" %s", SwStr);
+                }
+                else {
+                    GetArgName(SwTable[i].HelpStr, ArgName, ARG_NAME_SIZE, TRUE, g_DefaultArgName);
+                    ShellPrintEx(-1, -1, L" %s %s", SwStr, ArgName);
+                }
             }
+            i++;
         }
-        i++;
-    }
-    i = 0;
-    while (SwTable[i].SwitchNecessity != NO_SW) {
-        // usage: optional switches
-        if (SwTable[i].SwitchNecessity != MAN_SW) {
-            ShellPrintEx(-1, -1, L" [options]");
-            break;
+        i = 0;
+        while (SwTable[i].SwitchNecessity != NO_SW) {
+            // usage: optional switches
+            if (SwTable[i].SwitchNecessity != MAN_SW) {
+                ShellPrintEx(-1, -1, L" [options]");
+                break;
+            }
+            i++;
         }
-        i++;
     }
     ShellPrintEx(-1, -1, L"\n");
 
     // Parameter help
     if (ParamTable) {
         ShellPrintEx(-1, -1, L"\n Parameters:\n");
-        i = 0;
+        UINTN i = 0;
         while (ParamTable[i].ValueType != VALTYPE_NONE) {
             HelpIdx = GetArgName(ParamTable[i].HelpStr, ArgName, ARG_NAME_SIZE, (i+1 <= ManParamCount), g_DefaultArgName);
             // get rid of spaces below ###
@@ -779,7 +784,7 @@ STATIC VOID ShowHelp(
     // Switch help
     if (SwTable) {
         // Mandatory switches
-        i = 0;
+        UINTN i = 0;
         UINTN count = 0;
         while (SwTable[i].SwitchNecessity != NO_SW) {
             if (SwTable[i].SwitchNecessity == MAN_SW) {
@@ -864,7 +869,7 @@ BOOLEAN CheckProgAbort(
     BOOLEAN abort = FALSE;
     while (!EFI_ERROR(gST->ConIn->ReadKeyStroke(gST->ConIn, &key))) {
         //Print(L"scancode=%04X char=%04X\n", key.ScanCode, key.UnicodeChar);
-        if ( (key.ScanCode == 0x17) && (key.UnicodeChar== 0x00) ) { // ESC key
+        if ( (key.ScanCode == SCAN_ESC) && (key.UnicodeChar== 0x00) ) {
             abort = TRUE;
             if (PrintMsg) {
                 ShellPrintEx(-1, -1, L"%H%s%N: User Aborted!\r\n", g_ProgName);
@@ -936,7 +941,7 @@ EFI_STATUS WaitKeyPress(
     }
     if ((KeyOpt & KEY_ECHO) && (CharCode >= 32) && (CharCode <= 127)) {
         ShellPrintEx(-1, -1, L" %c\n", CharCode);
-    } else {
+    } else if (PromptStr)  {
         ShellPrintEx(-1, -1, L"\n");
     }
     if(KeyPressed) {
@@ -1006,7 +1011,7 @@ EFI_STATUS StringInput(
                 if (Col == 0) {
                     // at start of line so move to end of previous line
                     Row--;
-                    Col = MaxCol-1;
+                    Col = (INT32)MaxCol-1;
                 } else {
                     Col--;
                 }
