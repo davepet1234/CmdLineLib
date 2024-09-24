@@ -352,6 +352,7 @@ STATIC VALUE_STATUS ReturnValue(
   )
 {
     UINTN Value;
+    UINTN srcLen, dstLen;
     VALUE_STATUS ValStatus;
     
     if ( !String || (!ValueRetPtr.pVoid) ) {
@@ -362,6 +363,13 @@ STATIC VALUE_STATUS ReturnValue(
     case VALTYPE_STRING:
         StrnCpyS(ValueRetPtr.pChar16, Data->MaxStrSize, String, Data->MaxStrSize-1);
         if (StrLen(String) > Data->MaxStrSize-1) {
+            return VAL_STR_TRUNCATED;
+        }
+        break;
+    case VALTYPE_ASCII_STRING:
+        srcLen = StrLen(String);
+        UnicodeStrnToAsciiStrS(String, srcLen, ValueRetPtr.pChar8, Data->MaxStrSize, &dstLen);
+        if (srcLen > Data->MaxStrSize-1) {
             return VAL_STR_TRUNCATED;
         }
         break;

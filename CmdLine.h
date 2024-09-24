@@ -38,6 +38,8 @@ extern "C" {
 **/
 #define PARAMTABLE_STR(ValueRetPtr, StrSize, HelpStr) \
     {VALTYPE_STRING, {.MaxStrSize=StrSize}, {.pChar16=ValueRetPtr}, HelpStr},
+#define PARAMTABLE_STR8(ValueRetPtr, StrSize, HelpStr) \
+    {VALTYPE_ASCII_STRING, {.MaxStrSize=StrSize}, {.pChar8=ValueRetPtr}, HelpStr},
 
 /**
   PARAMTABLE_DEC - Adds decimal parameter to table
@@ -157,13 +159,23 @@ extern "C" {
 **/
 #define SWTABLE_OPT_STR(SwStr1, SwStr2, ValueRetPtr, StrSize, HelpStr) \
     { SwStr1, SwStr2, OPT_SW, VALTYPE_STRING, {.MaxStrSize=StrSize}, NULL, {.pChar16=ValueRetPtr}, HelpStr},
+#define SWTABLE_OPT_STR8(SwStr1, SwStr2, ValueRetPtr, StrSize, HelpStr) \
+    { SwStr1, SwStr2, OPT_SW, VALTYPE_ASCII_STRING, {.MaxStrSize=StrSize}, NULL, {.pChar8=ValueRetPtr}, HelpStr},
+
 #define SWTABLE_MAN_STR(SwStr1, SwStr2, ValueRetPtr, StrSize, HelpStr) \
     { SwStr1, SwStr2, MAN_SW, VALTYPE_STRING, {.MaxStrSize=StrSize}, NULL, {.pChar16=ValueRetPtr}, HelpStr},
+#define SWTABLE_MAN_STR8(SwStr1, SwStr2, ValueRetPtr, StrSize, HelpStr) \
+    { SwStr1, SwStr2, MAN_SW, VALTYPE_ASCII_STRING, {.MaxStrSize=StrSize}, NULL, {.pChar8=ValueRetPtr}, HelpStr},
 
 #define SWTABLE_OPT_STR_FLGD(SwStr1, SwStr2, PresentPtr, ValueRetPtr, StrSize, HelpStr) \
     { SwStr1, SwStr2, OPT_SW, VALTYPE_STRING, {.MaxStrSize=StrSize}, PresentPtr, {.pChar16=ValueRetPtr}, HelpStr},
+#define SWTABLE_OPT_STR8_FLGD(SwStr1, SwStr2, PresentPtr, ValueRetPtr, StrSize, HelpStr) \
+    { SwStr1, SwStr2, OPT_SW, VALTYPE_ASCII_STRING, {.MaxStrSize=StrSize}, PresentPtr, {.pChar8=ValueRetPtr}, HelpStr},
+
 #define SWTABLE_MAN_STR_FLGD(SwStr1, SwStr2, PresentPtr, alueRetPtr, StrSize, HelpStr) \
     { SwStr1, SwStr2, MAN_SW, VALTYPE_STRING, {.MaxStrSize=StrSize}, PresentPtr, {.pChar16=ValueRetPtr}, HelpStr},
+#define SWTABLE_MAN_STR8_FLGD(SwStr1, SwStr2, PresentPtr, alueRetPtr, StrSize, HelpStr) \
+    { SwStr1, SwStr2, MAN_SW, VALTYPE_ASCII_STRING, {.MaxStrSize=StrSize}, PresentPtr, {.pChar8=ValueRetPtr}, HelpStr},
 
 
 /**
