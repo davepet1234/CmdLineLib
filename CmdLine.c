@@ -899,6 +899,21 @@ EFI_STATUS WaitKeyPress(
   IN UINT16       KeyOpt
 )
 {
+    return WaitKeyPressWithTimeout(KeyPressed, KeyList, PromptStr, 0UL, KeyOpt);
+}
+
+/**
+ * Function: WaitKeyPress
+ * 
+ **/
+EFI_STATUS WaitKeyPressWithTimeout(
+  OUT CHAR16      *KeyPressed OPTIONAL,
+  IN CONST CHAR16 *KeyList OPTIONAL,
+  IN CONST CHAR16 *PromptStr OPTIONAL,
+  IN UINTN        TimeoutMs,
+  IN UINT16       KeyOpt
+)
+{
     EFI_STATUS Status = EFI_SUCCESS;
 
     if (PromptStr) {
@@ -910,41 +925,67 @@ EFI_STATUS WaitKeyPress(
     }
     BOOLEAN Complete = FALSE;
     CHAR16 CharCode = 0;
+
     while (!Complete) {
-        UINTN index;
-        Status = gST->BootServices->WaitForEvent(1, &gST->ConIn->WaitForKey, &index);
-        if (EFI_ERROR(Status)) {
-            break;
-        }
-        EFI_INPUT_KEY key;
-        Status = gST->ConIn->ReadKeyStroke(gST->ConIn, &key);
-        if (Status == EFI_NOT_READY) {
-            // modifier key
-            continue;
-        }
-        if (EFI_ERROR(Status)) {
-            break;
-        }
-        //Print(L"scancode=%04X char=%04X\n", key.ScanCode, key.UnicodeChar);
-        if ((key.ScanCode == SCAN_ESC) && (key.UnicodeChar== 0x00)) {
-            // ESC key - abort
-            Status = EFI_ABORTED;
-            Complete = TRUE;
-        } else if (KeyList && KeyList[0] != '\0' ) {
-            UINTN i = 0;
-            while (KeyList[i]) {
-                CHAR16 key1 = (KeyOpt & KEY_ICASE) ? CharToUpper(key.UnicodeChar) : key.UnicodeChar;
-                CHAR16 key2 = (KeyOpt & KEY_ICASE) ? CharToUpper(KeyList[i]) : KeyList[i];
-                if (key1 == key2) {
-                    CharCode = key.UnicodeChar;
-                    Complete = TRUE;
-                    break;
-                }
-                i++;
+        // Wait for either key or timer
+        EFI_EVENT EventList[2];
+        EventList[0] = gST->ConIn->WaitForKey;
+        UINTN NumEvents = 1;
+        if (TimeoutMs) {
+            EFI_EVENT TimerEvent;
+            Status = gBS->CreateEvent(EVT_TIMER, TPL_CALLBACK, NULL, NULL, &TimerEvent);
+            if (EFI_ERROR(Status)) {
+                break;
             }
-        } else { // any key
-            CharCode = key.UnicodeChar;
-            Complete = TRUE;
+            Status = gBS->SetTimer(TimerEvent, TimerRelative, (UINT64)TimeoutMs * 10000ULL);
+            if (EFI_ERROR(Status)) {
+                gBS->CloseEvent(TimerEvent);
+                break;
+            }
+            EventList[1] = TimerEvent;
+            NumEvents = 2;
+        }
+        UINTN Index;
+        Status = gBS->WaitForEvent(NumEvents, EventList, &Index);
+        if (EFI_ERROR(Status)) {
+            break;
+        }
+        if (Index == 1) {
+            // timer fired
+            Status = EFI_TIMEOUT;
+            break;
+        } else {
+            // key pressed
+            EFI_INPUT_KEY key;
+            Status = gST->ConIn->ReadKeyStroke(gST->ConIn, &key);
+            if (Status == EFI_NOT_READY) {
+                // modifier key
+                continue;
+            }
+            if (EFI_ERROR(Status)) {
+                break;
+            }
+            //Print(L"scancode=%04X char=%04X\n", key.ScanCode, key.UnicodeChar);
+            if ((key.ScanCode == SCAN_ESC) && (key.UnicodeChar== 0x00)) {
+                // ESC key - abort
+                Status = EFI_ABORTED;
+                Complete = TRUE;
+            } else if (KeyList && KeyList[0] != '\0' ) {
+                UINTN i = 0;
+                while (KeyList[i]) {
+                    CHAR16 key1 = (KeyOpt & KEY_ICASE) ? CharToUpper(key.UnicodeChar) : key.UnicodeChar;
+                    CHAR16 key2 = (KeyOpt & KEY_ICASE) ? CharToUpper(KeyList[i]) : KeyList[i];
+                    if (key1 == key2) {
+                        CharCode = key.UnicodeChar;
+                        Complete = TRUE;
+                        break;
+                    }
+                    i++;
+                }
+            } else { // any key
+                CharCode = key.UnicodeChar;
+                Complete = TRUE;
+            }
         }
     }
     if ((KeyOpt & KEY_ECHO) && (CharCode >= 32) && (CharCode <= 127)) {
@@ -982,8 +1023,8 @@ EFI_STATUS StringInput(
     gST->ConOut->QueryMode(gST->ConOut, gST->ConOut->Mode->Mode, &MaxCol, &MaxRow);
     UINTN currPos = 0;
     while (TRUE) {
-        UINTN index;
-        Status = gST->BootServices->WaitForEvent(1, &gST->ConIn->WaitForKey, &index);
+        UINTN Index;
+        Status = gST->BootServices->WaitForEvent(1, &gST->ConIn->WaitForKey, &Index);
         if (EFI_ERROR(Status)) {
             break;
         }

@@ -477,6 +477,31 @@ EFI_STATUS WaitKeyPress(
 
 
 /**
+  WaitKeyPressWithTimeout - Wait until one of supplied keys is pressed or any key if none supplied with timeout
+ 
+  KeyPressed    Ptr to return key pressed; NULL if not required
+  KeyList       List of keys; NULL or empty string for any key press
+  PromptStr     Ptr to prompt string; NULL for none
+  TimeoutMs     Time to wait for keypress in milliseconds
+  KeyOpt        Functional options (bit values to be ORed)
+                    KEY_NOOPT   no option, used on its own
+                    KEY_LIST    display key list after prompt string
+                    KEY_ECHO    print character pressed
+                    KEY_ICASE   insensative case on key check
+
+  Returns       EFI_SUCCESS     key pressed
+                EFI_TIMEOUT     timed out waiting for key press
+                EFI_ABORTED     ESC key pressed
+**/
+  EFI_STATUS WaitKeyPressWithTimeout(
+  OUT CHAR16      *KeyPressed OPTIONAL,
+  IN CONST CHAR16 *KeyList OPTIONAL,
+  IN CONST CHAR16 *PromptStr OPTIONAL,
+  IN UINTN        TimeoutMs,
+  IN UINT16       KeyOpt
+);
+
+/**
   StringInput - Accept string input from keyboard
 
   InputBuffer   Ptr to buffer to store input
