@@ -57,19 +57,19 @@ extern "C" {
     {VALTYPE_DECIMAL, {.ValSize=SIZE32}, {.pUint32=ValueRetPtr}, HelpStr},
 
 /**
-  PARAMTABLE_HEX - Adds hexidecimal parameter to table
+  PARAMTABLE_HEX - Adds hexadecimal parameter to table
 
   ValueRetPtr   Ptr to (UINTN|UINT8|UINT16|UINT32) to hold value entered
   HelpStr       Ptr to CHAR16 help string for parameter
 **/
 #define PARAMTABLE_HEX(ValueRetPtr, HelpStr) \
-    {VALTYPE_HEXIDECIMAL, {.ValSize=SIZEN}, {.pUintn=ValueRetPtr}, HelpStr},
+    {VALTYPE_HEXADECIMAL, {.ValSize=SIZEN}, {.pUintn=ValueRetPtr}, HelpStr},
 #define PARAMTABLE_HEX8(ValueRetPtr, HelpStr) \
-    {VALTYPE_HEXIDECIMAL, {.ValSize=SIZE8}, {.pUint8=ValueRetPtr}, HelpStr},
+    {VALTYPE_HEXADECIMAL, {.ValSize=SIZE8}, {.pUint8=ValueRetPtr}, HelpStr},
 #define PARAMTABLE_HEX16(ValueRetPtr, HelpStr) \
-    {VALTYPE_HEXIDECIMAL, {.ValSize=SIZE16}, {.pUint16=ValueRetPtr}, HelpStr},
+    {VALTYPE_HEXADECIMAL, {.ValSize=SIZE16}, {.pUint16=ValueRetPtr}, HelpStr},
 #define PARAMTABLE_HEX32(ValueRetPtr, HelpStr) \
-    {VALTYPE_HEXIDECIMAL, {.ValSize=SIZE32}, {.pUint32=ValueRetPtr}, HelpStr},
+    {VALTYPE_HEXADECIMAL, {.ValSize=SIZE32}, {.pUint32=ValueRetPtr}, HelpStr},
 
 /**
   PARAMTABLE_INT - Adds integer parameter (decimal or hex) to table
@@ -94,7 +94,7 @@ extern "C" {
   HelpStr       Ptr to CHAR16 help string for parameter
 **/
 #define PARAMTABLE_ENUM(ValueRetPtr, EnumArray, HelpStr) \
-    {VALTYPE_ENUM, EnumArray, {.pEnum=ValueRetPtr}, HelpStr},
+    {VALTYPE_ENUM, {.EnumStrArray=EnumArray}, {.pEnum=(unsigned int *)ValueRetPtr}, HelpStr},
 
 /**
   PARAMTABLE_END - Ends the parameter table
@@ -135,7 +135,7 @@ extern "C" {
   SwStr1        Ptr to CHAR16 defining short switch name
   SwStr2        Ptr to CHAR16 defining long switch name
   ValueRetPtr   Ptr to UINTN, set to 'Value' if switch present
-  Value         Value to set if switch present
+  Value         Value to set if switch present (must be non-zero)
   HelpStr       Ptr to CHAR16 help string for switch
 **/
 #define SWTABLE_OPT_FLGVAL(SwStr1, SwStr2, ValueRetPtr, Value, HelpStr) \
@@ -172,9 +172,9 @@ extern "C" {
 #define SWTABLE_OPT_STR8_FLGD(SwStr1, SwStr2, PresentPtr, ValueRetPtr, StrSize, HelpStr) \
     { SwStr1, SwStr2, OPT_SW, VALTYPE_ASCII_STRING, {.MaxStrSize=StrSize}, PresentPtr, {.pChar8=ValueRetPtr}, HelpStr},
 
-#define SWTABLE_MAN_STR_FLGD(SwStr1, SwStr2, PresentPtr, alueRetPtr, StrSize, HelpStr) \
+#define SWTABLE_MAN_STR_FLGD(SwStr1, SwStr2, PresentPtr, ValueRetPtr, StrSize, HelpStr) \
     { SwStr1, SwStr2, MAN_SW, VALTYPE_STRING, {.MaxStrSize=StrSize}, PresentPtr, {.pChar16=ValueRetPtr}, HelpStr},
-#define SWTABLE_MAN_STR8_FLGD(SwStr1, SwStr2, PresentPtr, alueRetPtr, StrSize, HelpStr) \
+#define SWTABLE_MAN_STR8_FLGD(SwStr1, SwStr2, PresentPtr, ValueRetPtr, StrSize, HelpStr) \
     { SwStr1, SwStr2, MAN_SW, VALTYPE_ASCII_STRING, {.MaxStrSize=StrSize}, PresentPtr, {.pChar8=ValueRetPtr}, HelpStr},
 
 
@@ -228,11 +228,11 @@ extern "C" {
     { SwStr1, SwStr2, MAN_SW, VALTYPE_DECIMAL, {.ValSize=SIZE32}, PresentPtr, {.pUint32=ValueRetPtr}, HelpStr},
 
 /**
-  SWTABLE_OPT_HEX - Adds an optional hexidecimal switch to table
-  SWTABLE_MAN_HEX - Adds a mandatory hexidecimal switch to table
+  SWTABLE_OPT_HEX - Adds an optional hexadecimal switch to table
+  SWTABLE_MAN_HEX - Adds a mandatory hexadecimal switch to table
 
-  SWTABLE_OPT_HEX_FLGD - Adds an optional hexidecimal switch to table + switch presence flag
-  SWTABLE_MAN_HEX_FLGD - Adds a mandatory hexidecimal switch to table + switch presence flag
+  SWTABLE_OPT_HEX_FLGD - Adds an optional hexadecimal switch to table + switch presence flag
+  SWTABLE_MAN_HEX_FLGD - Adds a mandatory hexadecimal switch to table + switch presence flag
 
   SwStr1        Ptr to CHAR16 defining short switch name
   SwStr2        Ptr to CHAR16 defining long switch name
@@ -241,40 +241,40 @@ extern "C" {
   HelpStr       Ptr to CHAR16 help string for parameter
 **/
 #define SWTABLE_OPT_HEX(SwStr1, SwStr2, ValueRetPtr, HelpStr) \
-    { SwStr1, SwStr2, OPT_SW, VALTYPE_HEXIDECIMAL, {.ValSize=SIZEN}, NULL, {.pUintn=ValueRetPtr}, HelpStr},
+    { SwStr1, SwStr2, OPT_SW, VALTYPE_HEXADECIMAL, {.ValSize=SIZEN}, NULL, {.pUintn=ValueRetPtr}, HelpStr},
 #define SWTABLE_OPT_HEX8(SwStr1, SwStr2, ValueRetPtr, HelpStr) \
-    { SwStr1, SwStr2, OPT_SW, VALTYPE_HEXIDECIMAL, {.ValSize=SIZE8}, NULL, {.pUint8=ValueRetPtr}, HelpStr},
+    { SwStr1, SwStr2, OPT_SW, VALTYPE_HEXADECIMAL, {.ValSize=SIZE8}, NULL, {.pUint8=ValueRetPtr}, HelpStr},
 #define SWTABLE_OPT_HEX16(SwStr1, SwStr2, ValueRetPtr, HelpStr) \
-    { SwStr1, SwStr2, OPT_SW, VALTYPE_HEXIDECIMAL, {.ValSize=SIZE16}, NULL, {.pUint16=ValueRetPtr}, HelpStr},
+    { SwStr1, SwStr2, OPT_SW, VALTYPE_HEXADECIMAL, {.ValSize=SIZE16}, NULL, {.pUint16=ValueRetPtr}, HelpStr},
 #define SWTABLE_OPT_HEX32(SwStr1, SwStr2, ValueRetPtr, HelpStr) \
-    { SwStr1, SwStr2, OPT_SW, VALTYPE_HEXIDECIMAL, {.ValSize=SIZE32}, NULL, {.pUint32=ValueRetPtr}, HelpStr},
+    { SwStr1, SwStr2, OPT_SW, VALTYPE_HEXADECIMAL, {.ValSize=SIZE32}, NULL, {.pUint32=ValueRetPtr}, HelpStr},
 
 #define SWTABLE_MAN_HEX(SwStr1, SwStr2, ValueRetPtr, HelpStr) \
-    { SwStr1, SwStr2, MAN_SW, VALTYPE_HEXIDECIMAL, {.ValSize=SIZEN}, NULL, {.pUintn=ValueRetPtr}, HelpStr},
+    { SwStr1, SwStr2, MAN_SW, VALTYPE_HEXADECIMAL, {.ValSize=SIZEN}, NULL, {.pUintn=ValueRetPtr}, HelpStr},
 #define SWTABLE_MAN_HEX8(SwStr1, SwStr2, ValueRetPtr, HelpStr) \
-    { SwStr1, SwStr2, MAN_SW, VALTYPE_HEXIDECIMAL, {.ValSize=SIZE8}, NULL, {.pUint8=ValueRetPtr}, HelpStr},
+    { SwStr1, SwStr2, MAN_SW, VALTYPE_HEXADECIMAL, {.ValSize=SIZE8}, NULL, {.pUint8=ValueRetPtr}, HelpStr},
 #define SWTABLE_MAN_HEX16(SwStr1, SwStr2, ValueRetPtr, HelpStr) \
-    { SwStr1, SwStr2, MAN_SW, VALTYPE_HEXIDECIMAL, {.ValSize=SIZE16}, NULL, {.pUint16=ValueRetPtr}, HelpStr},
+    { SwStr1, SwStr2, MAN_SW, VALTYPE_HEXADECIMAL, {.ValSize=SIZE16}, NULL, {.pUint16=ValueRetPtr}, HelpStr},
 #define SWTABLE_MAN_HEX32(SwStr1, SwStr2, ValueRetPtr, HelpStr) \
-    { SwStr1, SwStr2, MAN_SW, VALTYPE_HEXIDECIMAL, {.ValSize=SIZE32}, NULL, {.pUint32=ValueRetPtr}, HelpStr},
+    { SwStr1, SwStr2, MAN_SW, VALTYPE_HEXADECIMAL, {.ValSize=SIZE32}, NULL, {.pUint32=ValueRetPtr}, HelpStr},
 
 #define SWTABLE_OPT_HEX_FLGD(SwStr1, SwStr2, PresentPtr, ValueRetPtr, HelpStr) \
-    { SwStr1, SwStr2, OPT_SW, VALTYPE_HEXIDECIMAL, {.ValSize=SIZEN}, PresentPtr, {.pUintn=ValueRetPtr}, HelpStr},
+    { SwStr1, SwStr2, OPT_SW, VALTYPE_HEXADECIMAL, {.ValSize=SIZEN}, PresentPtr, {.pUintn=ValueRetPtr}, HelpStr},
 #define SWTABLE_OPT_HEX8_FLGD(SwStr1, SwStr2, PresentPtr, ValueRetPtr, HelpStr) \
-    { SwStr1, SwStr2, OPT_SW, VALTYPE_HEXIDECIMAL, {.ValSize=SIZE8}, PresentPtr, {.pUint8=ValueRetPtr}, HelpStr},
+    { SwStr1, SwStr2, OPT_SW, VALTYPE_HEXADECIMAL, {.ValSize=SIZE8}, PresentPtr, {.pUint8=ValueRetPtr}, HelpStr},
 #define SWTABLE_OPT_HEX16_FLGD(SwStr1, SwStr2, PresentPtr, ValueRetPtr, HelpStr) \
-    { SwStr1, SwStr2, OPT_SW, VALTYPE_HEXIDECIMAL, {.ValSize=SIZE16}, PresentPtr, {.pUint16=ValueRetPtr}, HelpStr},
+    { SwStr1, SwStr2, OPT_SW, VALTYPE_HEXADECIMAL, {.ValSize=SIZE16}, PresentPtr, {.pUint16=ValueRetPtr}, HelpStr},
 #define SWTABLE_OPT_HEX32_FLGD(SwStr1, SwStr2, PresentPtr, ValueRetPtr, HelpStr) \
-    { SwStr1, SwStr2, OPT_SW, VALTYPE_HEXIDECIMAL, {.ValSize=SIZE32}, PresentPtr, {.pUint32=ValueRetPtr}, HelpStr},
+    { SwStr1, SwStr2, OPT_SW, VALTYPE_HEXADECIMAL, {.ValSize=SIZE32}, PresentPtr, {.pUint32=ValueRetPtr}, HelpStr},
 
 #define SWTABLE_MAN_HEX_FLGD(SwStr1, SwStr2, PresentPtr, ValueRetPtr, HelpStr) \
-    { SwStr1, SwStr2, MAN_SW, VALTYPE_HEXIDECIMAL, {.ValSize=SIZEN}, PresentPtr, {.pUintn=ValueRetPtr}, HelpStr},
+    { SwStr1, SwStr2, MAN_SW, VALTYPE_HEXADECIMAL, {.ValSize=SIZEN}, PresentPtr, {.pUintn=ValueRetPtr}, HelpStr},
 #define SWTABLE_MAN_HEX8_FLGD(SwStr1, SwStr2, PresentPtr, ValueRetPtr, HelpStr) \
-    { SwStr1, SwStr2, MAN_SW, VALTYPE_HEXIDECIMAL, {.ValSize=SIZE8}, PresentPtr, {.pUint8=ValueRetPtr}, HelpStr},
+    { SwStr1, SwStr2, MAN_SW, VALTYPE_HEXADECIMAL, {.ValSize=SIZE8}, PresentPtr, {.pUint8=ValueRetPtr}, HelpStr},
 #define SWTABLE_MAN_HEX16_FLGD(SwStr1, SwStr2, PresentPtr, ValueRetPtr, HelpStr) \
-    { SwStr1, SwStr2, MAN_SW, VALTYPE_HEXIDECIMAL, {.ValSize=SIZE16}, PresentPtr, {.pUint16=ValueRetPtr}, HelpStr},
+    { SwStr1, SwStr2, MAN_SW, VALTYPE_HEXADECIMAL, {.ValSize=SIZE16}, PresentPtr, {.pUint16=ValueRetPtr}, HelpStr},
 #define SWTABLE_MAN_HEX32_FLGD(SwStr1, SwStr2, PresentPtr, ValueRetPtr, HelpStr) \
-    { SwStr1, SwStr2, MAN_SW, VALTYPE_HEXIDECIMAL, {.ValSize=SIZE32}, PresentPtr, {.pUint32=ValueRetPtr}, HelpStr},
+    { SwStr1, SwStr2, MAN_SW, VALTYPE_HEXADECIMAL, {.ValSize=SIZE32}, PresentPtr, {.pUint32=ValueRetPtr}, HelpStr},
 
 /**
   SWTABLE_OPT_INT - Adds an optional integer (decimal or hex) switch to table
@@ -341,12 +341,12 @@ extern "C" {
 **/
 #define SWTABLE_OPT_ENUM(SwStr1, SwStr2, ValueRetPtr, EnumArray, HelpStr) \
     { SwStr1, SwStr2, OPT_SW, VALTYPE_ENUM, {.EnumStrArray=EnumArray}, NULL, {.pEnum=(unsigned int *)ValueRetPtr}, HelpStr},
-#define SWTABLE_MAN_ENUM(SwStr1, SwStr2, EnumArray, ValueRetPtr, HelpStr) \
+#define SWTABLE_MAN_ENUM(SwStr1, SwStr2, ValueRetPtr, EnumArray, HelpStr) \
     { SwStr1, SwStr2, MAN_SW, VALTYPE_ENUM, {.EnumStrArray=EnumArray}, NULL, {.pEnum=(unsigned int *)ValueRetPtr}, HelpStr},
 
 #define SWTABLE_OPT_ENUM_FLGD(SwStr1, SwStr2, PresentPtr, ValueRetPtr, EnumArray, HelpStr) \
     { SwStr1, SwStr2, OPT_SW, VALTYPE_ENUM, {.EnumStrArray=EnumArray}, PresentPtr, {.pEnum=(unsigned int *)ValueRetPtr}, HelpStr},
-#define SWTABLE_MAN_ENUM_FLGD(SwStr1, SwStr2, EnumArray, PresentPtr, ValueRetPtr, HelpStr) \
+#define SWTABLE_MAN_ENUM_FLGD(SwStr1, SwStr2, PresentPtr, ValueRetPtr, EnumArray, HelpStr) \
     { SwStr1, SwStr2, MAN_SW, VALTYPE_ENUM, {.EnumStrArray=EnumArray}, PresentPtr, {.pEnum=(unsigned int *)ValueRetPtr}, HelpStr},
 
 /**
@@ -535,23 +535,23 @@ EFI_STATUS DecimalInput(
 
 
 /**
-  HexidecimalInput - Accept hexidecimal input from keyboard
+  HexadecimalInput - Accept hexadecimal input from keyboard
 
   Value         Ptr to UINTN to store input
   PromptStr     Ptr to prompt string; NULL for none
 
-  Returns       EFI_SUCCESS             valid hexidecimal value entered
-                EFI_INVALID_PARAMETER   invalid hexidecimal value entered
+  Returns       EFI_SUCCESS             valid hexadecimal value entered
+                EFI_INVALID_PARAMETER   invalid hexadecimal value entered
                 EFI_ABORTED             ESC key pressed
 **/
-EFI_STATUS HexidecimalInput(
+EFI_STATUS HexadecimalInput(
   OUT UINTN         *Value,
   IN CONST CHAR16   *PromptStr OPTIONAL
   );
 
 
 /**
-  IntegerInput - Accept integer (decimal/hexidecimal) input from keyboard
+  IntegerInput - Accept integer (decimal/hexadecimal) input from keyboard
 
   Value         Ptr to UINTN to store input
   PromptStr     Ptr to prompt string; NULL for none

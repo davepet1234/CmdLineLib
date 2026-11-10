@@ -18,7 +18,7 @@
 #include <Library/PrintLib.h>
 #include <Library/DebugLib.h>
 #include <Library/MemoryAllocationLib.h>
-#include <Library/BaseLib/BaseLibInternals.h>
+#include <Library/BaseLib.h>
 #include <Library/UefiBootServicesTableLib.h>
 #include "Protocol/EfiShellInterface.h"
 #include "CmdLine.h"
@@ -39,6 +39,7 @@ extern EFI_SHELL_INTERFACE *mEfiShellInterface;
 typedef enum {
     VAL_OK,
     VAL_STR_TRUNCATED,
+    VAL_STR_NOT_8BIT,
     VAL_DEC_INVALID,
     VAL_HEX_INVALID,
     VAL_INT_INVALID,
@@ -191,7 +192,7 @@ SHELL_STATUS ParseCmdLine(
             UINTN i = 0;
             BOOLEAN found = FALSE;
             CHAR16* SwStr = NULL; // used to record switch name incase of no value
-            while ((SwTable[i].SwitchNecessity != NO_SW)) {
+            while (SwTable && (SwTable[i].SwitchNecessity != NO_SW)) {
                 if ( (SwTable[i].SwStr1) && (StriCmp(Argv[ArgNum], SwTable[i].SwStr1) == 0) ) {
                     found = TRUE;
                     SwStr = SwTable[i].SwStr1;
@@ -203,7 +204,7 @@ SHELL_STATUS ParseCmdLine(
                     break;
                 }
                 i++;
-                if (i >= MAX_SWITCH_ENTRIES) {
+                if ((i >= MAX_SWITCH_ENTRIES) && (SwTable[i].SwitchNecessity != NO_SW)) {
                     TableError(i, L"Exceeded maximum switch count");
                     return SHELL_OUT_OF_RESOURCES;
                 }
@@ -218,6 +219,10 @@ SHELL_STATUS ParseCmdLine(
             }
             SwPresent[i] = TRUE;
             if (SwTable[i].ValueType == VALTYPE_NONE) {
+                if (SwTable[i].ValueRetPtr.pVoid == NULL) {
+                    TableError(i, L"Switch: Null 'RetValPtr'");
+                    goto Error_exit;
+                }
                 if (SwTable[i].Data.FlagValue) {
                     // flag with predefined value
                     *(SwTable[i].ValueRetPtr.pUintn) = SwTable[i].Data.FlagValue;
@@ -271,7 +276,7 @@ SHELL_STATUS ParseCmdLine(
 
     // initialise switch present flags
     UINTN i = 0;
-    while (SwTable[i].SwitchNecessity != NO_SW) {
+    while (SwTable && (i < MAX_SWITCH_ENTRIES) && (SwTable[i].SwitchNecessity != NO_SW)) {
         if (SwTable[i].PresentPtr) {
             *SwTable[i].PresentPtr = SwPresent[i];
         }
@@ -286,9 +291,9 @@ SHELL_STATUS ParseCmdLine(
 
     // check mandatory switches
     i = 0;
-    while (SwTable[i].SwitchNecessity != NO_SW) {
+    while (SwTable && (i < MAX_SWITCH_ENTRIES) && (SwTable[i].SwitchNecessity != NO_SW)) {
         if (SwTable[i].SwitchNecessity == MAN_SW && !SwPresent[i]) {
-            ShellPrintEx(-1, -1, L"%H%s%N: Missing switch - '%H%s%N'\r\n", g_ProgName, SwTable[i].SwStr1);
+            ShellPrintEx(-1, -1, L"%H%s%N: Missing switch - '%H%s%N'\r\n", g_ProgName, SwTable[i].SwStr1 ? SwTable[i].SwStr1 : SwTable[i].SwStr2);
             goto Error_exit;
         }
         i++;
@@ -322,6 +327,7 @@ STATIC VOID ValueError(
     CHAR16* ErrorStr;
     switch (ValStatus) {
         case VAL_STR_TRUNCATED:  ErrorStr = L"has its string truncated"; break;
+        case VAL_STR_NOT_8BIT:   ErrorStr = L"has characters not representable in 8 bits"; break;
         case VAL_DEC_INVALID:    ErrorStr = L"has invalid decimal value"; break;
         case VAL_HEX_INVALID:    ErrorStr = L"has invalid hex value"; break;
         case VAL_INT_INVALID:    ErrorStr = L"has invalid integer value"; break;
@@ -368,7 +374,14 @@ STATIC VALUE_STATUS ReturnValue(
         break;
     case VALTYPE_ASCII_STRING:
         srcLen = StrLen(String);
-        UnicodeStrnToAsciiStrS(String, srcLen, ValueRetPtr.pChar8, Data->MaxStrSize, &dstLen);
+        for (UINTN j = 0; j < srcLen; j++) {
+            if (String[j] > 0xFF) { // CHAR8 strings are Latin-1; wider chars cannot be converted
+                return VAL_STR_NOT_8BIT;
+            }
+        }
+        if (RETURN_ERROR(UnicodeStrnToAsciiStrS(String, MIN(srcLen, Data->MaxStrSize-1), ValueRetPtr.pChar8, Data->MaxStrSize, &dstLen))) {
+            return VAL_ERROR;
+        }
         if (srcLen > Data->MaxStrSize-1) {
             return VAL_STR_TRUNCATED;
         }
@@ -383,7 +396,7 @@ STATIC VALUE_STATUS ReturnValue(
             return ValStatus;
         }
         break;                
-    case VALTYPE_HEXIDECIMAL:
+    case VALTYPE_HEXADECIMAL:
         if (!IsHexString(String)) {
             return VAL_HEX_INVALID;
         }
@@ -478,6 +491,9 @@ STATIC BOOLEAN GetEnumVal(
 {
     BOOLEAN found = FALSE;
     UINTN i = 0;
+    if (!EnumStrArray) {
+        return FALSE;
+    }
     while (EnumStrArray[i].Str) {
         if (StriCmp(Str, EnumStrArray[i].Str) == 0) {
             if (Value) {
@@ -549,13 +565,15 @@ STATIC BOOLEAN HasHexPrefix(
 /**
  * Function: IsHexString
  *
- * Returns TRUE if valid hexidecimal value
+ * Returns TRUE if valid hexadecimal value
  **/
 STATIC BOOLEAN IsHexString(
   IN CONST CHAR16 *String   // string to check
   )
 {
     BOOLEAN LeadingZero = FALSE;
+    BOOLEAN HexPrefix = FALSE;
+    BOOLEAN Digits = FALSE;
 
     while ((*String == L' ') || (*String == L'\t')) {
         String++;
@@ -568,10 +586,16 @@ STATIC BOOLEAN IsHexString(
         if (!LeadingZero) {
             return FALSE;
         }
+        HexPrefix = TRUE;
         String++; // Skip the 'X'
     }
-    while (InternalIsHexaDecimalDigitCharacter(*String)) {
+    while (((*String >= L'0') && (*String <= L'9')) ||
+           ((CharToUpper(*String) >= L'A') && (CharToUpper(*String) <= L'F'))) {
+        Digits = TRUE;
         String++;
+    }
+    if (!Digits && !(LeadingZero && !HexPrefix)) {
+        return FALSE; // empty string or prefix only
     }
     return *String == L'\0' ? TRUE : FALSE;
 }
@@ -588,8 +612,13 @@ STATIC BOOLEAN IsDecimalString(
     while ((*String == L' ') || (*String == L'\t')) {
         String++;
     }
-    while (InternalIsDecimalDigitCharacter(*String)) {
+    BOOLEAN Digits = FALSE;
+    while ((*String >= L'0') && (*String <= L'9')) {
+        Digits = TRUE;
         String++;
+    }
+    if (!Digits) {
+        return FALSE; // empty string
     }
     return *String == L'\0' ? TRUE : FALSE;
 }
@@ -635,7 +664,7 @@ STATIC BOOLEAN ArgNameDefined(
   IN CHAR16 *HelpStr
   )
 {
-    return HelpStr[0] == L'[' ? TRUE:FALSE;
+    return (HelpStr && HelpStr[0] == L'[') ? TRUE:FALSE;
 }
 
 /**
@@ -672,7 +701,9 @@ STATIC UINTN GetArgName(
             }
             i++;
         }
-        HelpStartIdx = i+1;
+        if (ArgPtr) {
+            HelpStartIdx = i+1;
+        }
     }
     if (!ArgPtr && DefaultArgName) {
         // no argument name specified so use default
@@ -785,7 +816,7 @@ STATIC VOID ShowHelp(
         while (ParamTable[i].ValueType != VALTYPE_NONE) {
             HelpIdx = GetArgName(ParamTable[i].HelpStr, ArgName, ARG_NAME_SIZE, (i+1 <= ManParamCount), g_DefaultArgName);
             // get rid of spaces below ###
-            ShellPrintEx(-1, -1, L"  %s%s     %s\n", ArgName, &pad[StrLen(ArgName)], &ParamTable[i].HelpStr[HelpIdx]);
+            ShellPrintEx(-1, -1, L"  %s%s     %s\n", ArgName, (StrLen(ArgName) > PAD_SIZE-1) ? &pad[(PAD_SIZE-1)-1] : &pad[StrLen(ArgName)], &ParamTable[i].HelpStr[HelpIdx]);
             i++;
         }
     }
@@ -849,7 +880,7 @@ STATIC VOID PrintSwitchHelp(
     UINTN TotalLen = StrLen(SwStr2) + StrLen(ArgName);
     CHAR16 *PadStr = (TotalLen > PAD_SIZE-1) ? &pad[(PAD_SIZE-1)-1] : &pad[TotalLen];
     ShellPrintEx(-1, -1, L"  %s%c %s %s%s%s", SwStr1, SeperatorChar, SwStr2, ArgName, PadStr, &SwTableEntry->HelpStr[HelpIdx]);
-    if (SwTableEntry->ValueType == VALTYPE_ENUM) {
+    if ((SwTableEntry->ValueType == VALTYPE_ENUM) && SwTableEntry->Data.EnumStrArray) {
         // print all valid options for enum switches
         ShellPrintEx(-1, -1, L" (");
         UINTN j = 0;
@@ -926,25 +957,27 @@ EFI_STATUS WaitKeyPressWithTimeout(
     BOOLEAN Complete = FALSE;
     CHAR16 CharCode = 0;
 
-    while (!Complete) {
-        // Wait for either key or timer
-        EFI_EVENT EventList[2];
-        EventList[0] = gST->ConIn->WaitForKey;
-        UINTN NumEvents = 1;
-        if (TimeoutMs) {
-            EFI_EVENT TimerEvent;
-            Status = gBS->CreateEvent(EVT_TIMER, TPL_CALLBACK, NULL, NULL, &TimerEvent);
-            if (EFI_ERROR(Status)) {
-                break;
-            }
+    // Wait for either key or timer
+    EFI_EVENT EventList[2];
+    EFI_EVENT TimerEvent = NULL;
+    EventList[0] = gST->ConIn->WaitForKey;
+    UINTN NumEvents = 1;
+    if (TimeoutMs) {
+        Status = gBS->CreateEvent(EVT_TIMER, TPL_CALLBACK, NULL, NULL, &TimerEvent);
+        if (EFI_ERROR(Status)) {
+            TimerEvent = NULL;
+            Complete = TRUE;
+        } else {
             Status = gBS->SetTimer(TimerEvent, TimerRelative, (UINT64)TimeoutMs * 10000ULL);
             if (EFI_ERROR(Status)) {
-                gBS->CloseEvent(TimerEvent);
-                break;
+                Complete = TRUE;
             }
-            EventList[1] = TimerEvent;
-            NumEvents = 2;
         }
+        EventList[1] = TimerEvent;
+        NumEvents = 2;
+    }
+
+    while (!Complete) {
         UINTN Index;
         Status = gBS->WaitForEvent(NumEvents, EventList, &Index);
         if (EFI_ERROR(Status)) {
@@ -988,6 +1021,9 @@ EFI_STATUS WaitKeyPressWithTimeout(
             }
         }
     }
+    if (TimerEvent) {
+        gBS->CloseEvent(TimerEvent);
+    }
     if ((KeyOpt & KEY_ECHO) && (CharCode >= 32) && (CharCode <= 127)) {
         ShellPrintEx(-1, -1, L" %c\n", CharCode);
     } else if (PromptStr)  {
@@ -1016,7 +1052,7 @@ EFI_STATUS StringInput(
     }
     InputBuffer[0] = L'\0';
     if (PromptStr) {
-        ShellPrintEx(-1, -1, PromptStr);
+        ShellPrintEx(-1, -1, L"%s", PromptStr);
     }
     UINTN MaxCol;
     UINTN MaxRow;
@@ -1091,6 +1127,9 @@ EFI_STATUS DecimalInput(
   IN CONST CHAR16 *PromptStr OPTIONAL
   )
 {
+    if (!Value) {
+        return EFI_INVALID_PARAMETER;
+    }
     CHAR16 InputBuffer[INPUT_BUFF_LEN];    
     EFI_STATUS Status = StringInput(InputBuffer, INPUT_BUFF_LEN, PromptStr);
     if (!EFI_ERROR(Status)) {
@@ -1105,19 +1144,22 @@ EFI_STATUS DecimalInput(
 }
 
 /**
- * Function: HexidecimalInput
+ * Function: HexadecimalInput
  * 
  **/
-EFI_STATUS HexidecimalInput(
+EFI_STATUS HexadecimalInput(
   OUT UINTN       *Value,
   IN CONST CHAR16 *PromptStr OPTIONAL
   )
 {
+    if (!Value) {
+        return EFI_INVALID_PARAMETER;
+    }
     CHAR16 InputBuffer[INPUT_BUFF_LEN];    
     EFI_STATUS Status = StringInput(InputBuffer, INPUT_BUFF_LEN, PromptStr);
     if (!EFI_ERROR(Status)) {
         if (!IsHexString(InputBuffer)) {
-            ShellPrintEx(-1, -1, L"%H%s%N: Invalid hexidecimal input!\r\n", g_ProgName);
+            ShellPrintEx(-1, -1, L"%H%s%N: Invalid hexadecimal input!\r\n", g_ProgName);
             Status = EFI_INVALID_PARAMETER;
         } else {
             *Value = StrHexToUintn(InputBuffer);
@@ -1135,15 +1177,19 @@ EFI_STATUS IntegerInput(
   IN CONST CHAR16 *PromptStr OPTIONAL
   )
 {
+    if (!Value) {
+        return EFI_INVALID_PARAMETER;
+    }
     CHAR16 InputBuffer[INPUT_BUFF_LEN];    
     EFI_STATUS Status = StringInput(InputBuffer, INPUT_BUFF_LEN, PromptStr);
     if (!EFI_ERROR(Status)) {
         if (HasHexPrefix(InputBuffer)) {
             if (!IsHexString(InputBuffer)) {
-                ShellPrintEx(-1, -1, L"%H%s%N: Invalid hexidecimal input!\r\n", g_ProgName);
-            Status = EFI_INVALID_PARAMETER;
+                ShellPrintEx(-1, -1, L"%H%s%N: Invalid hexadecimal input!\r\n", g_ProgName);
+                Status = EFI_INVALID_PARAMETER;
+            } else {
+                *Value = StrHexToUintn(InputBuffer);
             }
-            *Value = StrHexToUintn(InputBuffer);
         } else if (IsDecimalString(InputBuffer)) {
             *Value = StrDecimalToUintn(InputBuffer);
         } else {
